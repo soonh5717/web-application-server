@@ -1,4 +1,4 @@
-package webserver.vo;
+package webserver;
 
 import org.apache.commons.lang3.ObjectUtils;
 import org.slf4j.Logger;
@@ -13,8 +13,8 @@ import java.io.InputStreamReader;
 import java.util.HashMap;
 import java.util.Map;
 
-public class HttpRequestVO {
-    private static final Logger log = LoggerFactory.getLogger(HttpRequestVO.class);
+public class HttpRequest {
+    private static final Logger log = LoggerFactory.getLogger(HttpRequest.class);
     private static final String URL_SEPARATOR = " ";
     private static final String URL_QUESTION_MARK = "?";
 
@@ -23,7 +23,7 @@ public class HttpRequestVO {
     private Map<String, String> headerMap;
     private Map<String, String> paramMap;
 
-    public HttpRequestVO(InputStream in) {
+    public HttpRequest(InputStream in) {
         try {
             makeHttpRequestVO(in);
         } catch (Exception e) {
@@ -31,10 +31,10 @@ public class HttpRequestVO {
         }
     }
 
-    public HttpRequestVO(String method,
-                         String path,
-                         Map<String, String> headerMap,
-                         Map<String, String> paramMap) {
+    public HttpRequest(String method,
+                       String path,
+                       Map<String, String> headerMap,
+                       Map<String, String> paramMap) {
         this.method = method;
         this.path = path;
         this.headerMap = headerMap;

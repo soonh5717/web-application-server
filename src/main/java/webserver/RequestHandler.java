@@ -4,7 +4,6 @@ import db.DataBase;
 import model.User;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import webserver.vo.HttpRequestVO;
 
 import java.io.DataOutputStream;
 import java.io.File;
@@ -28,20 +27,20 @@ public class RequestHandler extends Thread {
                 connection.getPort());
 
         try (InputStream in = connection.getInputStream(); OutputStream out = connection.getOutputStream()) {
-            HttpRequestVO httpRequestVO = new HttpRequestVO(in);
-            log.info("requestUrlVO : {}", httpRequestVO.toString());
+            HttpRequest httpRequest = new HttpRequest(in);
+            log.info("requestUrlVO : {}", httpRequest.toString());
 
             // TODO 사용자 요청에 대한 처리는 이 곳에 구현하면 된다.
             DataOutputStream dos = new DataOutputStream(out);
-            if ("/user/create".equals(httpRequestVO.getPath())) {
-                User user = buildUser(httpRequestVO.getParamMap());
+            if ("/user/create".equals(httpRequest.getPath())) {
+                User user = buildUser(httpRequest.getParamMap());
                 log.info("create user : {}", user.toString());
                 DataBase.addUser(user);
                 String redirectUrl = "/index.html";
                 response302Header(dos, redirectUrl, null);
-            } else if ("/user/login".equals(httpRequestVO.getPath())) {
-                String userId = httpRequestVO.getParamMap().get("userId");
-                String password = httpRequestVO.getParamMap().get("password");
+            } else if ("/user/login".equals(httpRequest.getPath())) {
+                String userId = httpRequest.getParamMap().get("userId");
+                String password = httpRequest.getParamMap().get("password");
                 log.info("login user - userId : {}, password : {}", userId, password);
                 User user = DataBase.findUserById(userId);
                 if (user == null || !password.equals(user.getPassword())) {
@@ -52,14 +51,14 @@ public class RequestHandler extends Thread {
                 String redirectUrl = "/index.html";
                 String cookie = "logined=true";
                 response302Header(dos, redirectUrl, cookie);
-            } else if ("/user/list".equals(httpRequestVO.getPath())) {
-                boolean isLogin = "logined=true".equals(httpRequestVO.getHeaderMap().get("Cookie"));
+            } else if ("/user/list".equals(httpRequest.getPath())) {
+                boolean isLogin = "logined=true".equals(httpRequest.getHeaderMap().get("Cookie"));
                 log.info("isLogin : {}", isLogin);
 
             } else {
                 //byte[] body = "Hello World".getBytes();
-                byte[] body = Files.readAllBytes(new File("./webapp" + httpRequestVO.getPath()).toPath());
-                response200Header(dos, getContentType(httpRequestVO.getHeaderMap().get("Accept")), body.length);
+                byte[] body = Files.readAllBytes(new File("./webapp" + httpRequest.getPath()).toPath());
+                response200Header(dos, getContentType(httpRequest.getHeaderMap().get("Accept")), body.length);
                 responseBody(dos, body);
             }
         } catch (IOException e) {
