@@ -4,27 +4,21 @@ import db.DataBase;
 import model.User;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import webserver.component.RequestBuilder;
-import webserver.vo.RequestVO;
+import webserver.vo.HttpRequestVO;
 
-import java.io.BufferedReader;
 import java.io.DataOutputStream;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.net.Socket;
 import java.nio.file.Files;
 import java.util.Map;
 
 public class RequestHandler extends Thread {
-    private static final String URL_SEPARATOR = " ";
     private static final Logger log = LoggerFactory.getLogger(RequestHandler.class);
 
     private Socket connection;
-    private RequestBuilder requestBuilder = new RequestBuilder();
-
     public RequestHandler(Socket connectionSocket) {
         this.connection = connectionSocket;
     }
@@ -34,21 +28,20 @@ public class RequestHandler extends Thread {
                 connection.getPort());
 
         try (InputStream in = connection.getInputStream(); OutputStream out = connection.getOutputStream()) {
-            BufferedReader br = new BufferedReader(new InputStreamReader(in, "UTF-8"));
-            RequestVO requestVO = requestBuilder.buildRequestUrlVO(br);
-            log.info("requestUrlVO : {}", requestVO.toString());
+            HttpRequestVO httpRequestVO = new HttpRequestVO(in);
+            log.info("requestUrlVO : {}", httpRequestVO.toString());
 
             // TODO 사용자 요청에 대한 처리는 이 곳에 구현하면 된다.
             DataOutputStream dos = new DataOutputStream(out);
-            if ("/user/create".equals(requestVO.getUrl())) {
-                User user = buildUser(requestVO.getParameterMap());
+            if ("/user/create".equals(httpRequestVO.getPath())) {
+                User user = buildUser(httpRequestVO.getParamMap());
                 log.info("create user : {}", user.toString());
                 DataBase.addUser(user);
                 String redirectUrl = "/index.html";
                 response302Header(dos, redirectUrl, null);
-            } else if ("/user/login".equals(requestVO.getUrl())) {
-                String userId = requestVO.getParameterMap().get("userId");
-                String password = requestVO.getParameterMap().get("password");
+            } else if ("/user/login".equals(httpRequestVO.getPath())) {
+                String userId = httpRequestVO.getParamMap().get("userId");
+                String password = httpRequestVO.getParamMap().get("password");
                 log.info("login user - userId : {}, password : {}", userId, password);
                 User user = DataBase.findUserById(userId);
                 if (user == null || !password.equals(user.getPassword())) {
@@ -59,14 +52,14 @@ public class RequestHandler extends Thread {
                 String redirectUrl = "/index.html";
                 String cookie = "logined=true";
                 response302Header(dos, redirectUrl, cookie);
-            } else if ("/user/list".equals(requestVO.getUrl())) {
-                boolean isLogin = "logined=true".equals(requestVO.getHeaderMap().get("Cookie"));
+            } else if ("/user/list".equals(httpRequestVO.getPath())) {
+                boolean isLogin = "logined=true".equals(httpRequestVO.getHeaderMap().get("Cookie"));
                 log.info("isLogin : {}", isLogin);
 
             } else {
                 //byte[] body = "Hello World".getBytes();
-                byte[] body = Files.readAllBytes(new File("./webapp" + requestVO.getUrl()).toPath());
-                response200Header(dos, getContentType(requestVO.getHeaderMap().get("Accept")), body.length);
+                byte[] body = Files.readAllBytes(new File("./webapp" + httpRequestVO.getPath()).toPath());
+                response200Header(dos, getContentType(httpRequestVO.getHeaderMap().get("Accept")), body.length);
                 responseBody(dos, body);
             }
         } catch (IOException e) {
