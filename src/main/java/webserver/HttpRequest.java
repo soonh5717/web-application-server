@@ -53,8 +53,16 @@ public class HttpRequest {
         return this.headerMap;
     }
 
+    public String getHeaderMap(String key) {
+        return this.headerMap.get(key);
+    }
+
     public Map<String, String> getParamMap() {
         return this.paramMap;
+    }
+
+    public String getParamMap(String key) {
+        return this.paramMap.get(key);
     }
 
     @Override

@@ -2,16 +2,16 @@ package webserver;
 
 import db.DataBase;
 import model.User;
+import org.apache.commons.lang3.ObjectUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import util.HttpRequestUtils;
 
-import java.io.DataOutputStream;
-import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.Socket;
-import java.nio.file.Files;
+import java.util.Collection;
 import java.util.Map;
 
 public class RequestHandler extends Thread {
@@ -28,38 +28,46 @@ public class RequestHandler extends Thread {
 
         try (InputStream in = connection.getInputStream(); OutputStream out = connection.getOutputStream()) {
             HttpRequest httpRequest = new HttpRequest(in);
-            log.info("requestUrlVO : {}", httpRequest.toString());
+            HttpResponse httpResponse = new HttpResponse(out);
 
-            // TODO 사용자 요청에 대한 처리는 이 곳에 구현하면 된다.
-            DataOutputStream dos = new DataOutputStream(out);
-            if ("/user/create".equals(httpRequest.getPath())) {
+            String path = httpRequest.getPath();
+            if ("/user/create".equals(path)) {
                 User user = buildUser(httpRequest.getParamMap());
-                log.info("create user : {}", user.toString());
                 DataBase.addUser(user);
-                String redirectUrl = "/index.html";
-                response302Header(dos, redirectUrl, null);
-            } else if ("/user/login".equals(httpRequest.getPath())) {
-                String userId = httpRequest.getParamMap().get("userId");
-                String password = httpRequest.getParamMap().get("password");
+                log.info("create user : {}", user.toString());
+                httpResponse.sendRedirect("/index.html");
+
+            } else if ("/user/login".equals(path)) {
+                String userId = httpRequest.getParamMap("userId");
+                String password = httpRequest.getParamMap("password");
                 log.info("login user - userId : {}, password : {}", userId, password);
                 User user = DataBase.findUserById(userId);
                 if (user == null || !password.equals(user.getPassword())) {
-                    String redirectUrl = "/user/login_failed.html";
-                    String cookie = "logined=false";
-                    response302Header(dos, redirectUrl, cookie);
+                    httpResponse.sendRedirect("/user/login_failed.html");
                 }
-                String redirectUrl = "/index.html";
-                String cookie = "logined=true";
-                response302Header(dos, redirectUrl, cookie);
+                httpResponse.addHeader("Set-Cookie", "logined=true");
+                httpResponse.sendRedirect("/index.html");
+
             } else if ("/user/list".equals(httpRequest.getPath())) {
-                boolean isLogin = "logined=true".equals(httpRequest.getHeaderMap().get("Cookie"));
-                log.info("isLogin : {}", isLogin);
+                if (!isLogin(httpRequest.getHeaderMap("Cookie"))) {
+                    httpResponse.sendRedirect("/user/login.html");
+                    return;
+                }
+
+                Collection<User> userCollection = DataBase.findAll();
+                StringBuilder sb = new StringBuilder();
+                sb.append("<table border='1>");
+                userCollection.forEach(user -> {
+                    sb.append("'<tr>");
+                    sb.append("<td>").append(user.getUserId()).append("</td>");
+                    sb.append("<td>").append(user.getName()).append("</td>");
+                    sb.append("<td>").append(user.getEmail()).append("</td>");
+                    sb.append("'</tr>");
+                });
+                httpResponse.forwardBody(sb.toString());
 
             } else {
-                //byte[] body = "Hello World".getBytes();
-                byte[] body = Files.readAllBytes(new File("./webapp" + httpRequest.getPath()).toPath());
-                response200Header(dos, getContentType(httpRequest.getHeaderMap().get("Accept")), body.length);
-                responseBody(dos, body);
+                httpResponse.forward(path);
             }
         } catch (IOException e) {
             log.error(e.getMessage());
@@ -74,57 +82,12 @@ public class RequestHandler extends Thread {
         return new User(userId, password, name, email);
     }
 
-    private String getContentType(String contentTypeString) {
-        int index = contentTypeString.indexOf(",");
-        if (index > -1) {
-            return contentTypeString.substring(0, index);
+    private boolean isLogin(String cookieValue) {
+        Map<String, String> cookies = HttpRequestUtils.parseCookies(cookieValue);
+        String value = cookies.get("logined");
+        if (ObjectUtils.isEmpty(value)) {
+            return false;
         }
-        return "text/html";
-    }
-
-    private void response200Header(DataOutputStream dos, String contentType, int lengthOfBodyContent) {
-        try {
-            dos.writeBytes("HTTP/1.1 200 OK \r\n");
-            dos.writeBytes("Content-Type: " + contentType + ";charset=utf-8\r\n");
-            dos.writeBytes("Content-Length: " + lengthOfBodyContent + "\r\n");
-            dos.writeBytes("\r\n");
-        } catch (IOException e) {
-            log.error(e.getMessage());
-        }
-    }
-
-    /*
-      ref : https://en.wikipedia.org/wiki/HTTP_302
-     */
-    private void response302Header(DataOutputStream dos) {
-        try {
-            dos.writeBytes("HTTP/1.1 302 Found \r\n");
-            dos.writeBytes("Location: /index.html \n");
-            dos.writeBytes("\r\n");
-        } catch (IOException e) {
-            log.error(e.getMessage());
-        }
-    }
-
-    private void response302Header(DataOutputStream dos, String url, String cookie) {
-        try {
-            dos.writeBytes("HTTP/1.1 302 Found \r\n");
-            dos.writeBytes("Location: " + url + " \r\n");
-            if (cookie != null) {
-                dos.writeBytes("Set-Cookie: " + cookie + " \r\n");
-            }
-            dos.writeBytes("\r\n");
-        } catch (IOException e) {
-            log.error(e.getMessage());
-        }
-    }
-
-    private void responseBody(DataOutputStream dos, byte[] body) {
-        try {
-            dos.write(body, 0, body.length);
-            dos.flush();
-        } catch (IOException e) {
-            log.error(e.getMessage());
-        }
+        return Boolean.parseBoolean(value);
     }
 }
