@@ -9,8 +9,9 @@ import java.util.HashMap;
 import java.util.Map;
 
 public class RequestMapping {
-    private static Map<String, Controller> controllerMap = new HashMap<String, Controller>();
+     private final static Map<String, Controller> controllerMap = new HashMap<String, Controller>();
 
+    // 위 선언과 동시에 수행한다.
     static {
         controllerMap.put("/user/create", new CreateUserController());
         controllerMap.put("/user/login", new LoginUserController());
