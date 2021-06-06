@@ -82,7 +82,7 @@ public class HttpRequest {
         headerMap = new HashMap<>();
         url = br.readLine();
         while (ObjectUtils.isNotEmpty(url)) {
-            log.info("url : {}", url);
+            //log.info("url : {}", url);
             String[] header = url.split(":");
             headerMap.put(header[0].trim(), header[1].trim());
             url = br.readLine();
